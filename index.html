@@ -112,6 +112,47 @@
     position: relative;
   }
 
+  /* "Try Pro" tooltip */
+  .pro-tooltip {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 10px;
+    background: linear-gradient(135deg, #4a2f8e, #7c4dff);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-radius: 8px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 40;
+    box-shadow: 0 4px 12px rgba(124,77,255,0.3);
+    animation: tooltipPulse 3s ease-in-out infinite, tooltipFadeIn 0.4s ease-out;
+  }
+
+  .pro-tooltip::before {
+    content: '';
+    position: absolute;
+    top: -5px;
+    left: 16px;
+    width: 10px;
+    height: 10px;
+    background: #4a2f8e;
+    transform: rotate(45deg);
+  }
+
+  @keyframes tooltipPulse {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(2px); }
+  }
+
+  @keyframes tooltipFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .model-picker.open .pro-tooltip { display: none; }
+
   .model-selector {
     display: flex;
     align-items: center;
@@ -752,6 +793,7 @@
       <button class="model-selector" onclick="toggleModelPicker()">
         <span id="modelSelectorLabel">GnatGPT 0.000001</span> <span class="arrow">&#9662;</span>
       </button>
+      <div class="pro-tooltip" id="proTooltip">&#10024; New! Try GnatGPT Pro</div>
       <div class="model-dropdown">
         <button class="model-option active" id="optStandard" onclick="selectModel('standard')">
           <div class="model-icon standard">🪰</div>
@@ -1086,9 +1128,15 @@ document.addEventListener('click', (e) => {
   }
 });
 
+function dismissProTooltip() {
+  const tip = document.getElementById('proTooltip');
+  if (tip) tip.remove();
+}
+
 function selectModel(model) {
   currentModel = model;
   document.getElementById('modelPicker').classList.remove('open');
+  dismissProTooltip();
 
   // Update checks
   document.getElementById('checkStandard').style.visibility = model === 'standard' ? 'visible' : 'hidden';
