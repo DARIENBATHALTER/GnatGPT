@@ -1451,11 +1451,98 @@ const proLoadingMessages = [
   "All 100,551 neurons are online! 🪰",
 ];
 
+// Word list for character→word mapping. Organized so the RNN's character-level
+// patterns create emergent "sentence-like" structure:
+//   space/punct → punctuation & line breaks (preserves rhythm)
+//   a-m        → nouns & subjects
+//   n-z        → verbs & adjectives
+//   digits     → quantifiers & filler
+//   uppercase  → same word but capitalized (sentence starts)
+const gnatWords = {
+  // Punctuation / structure (ASCII 32-47)
+  ' ': ' ', '!': '.', '"': ',', '#': '!', '$': '...', '%': '?',
+  '&': ' —', "'": ',', '(': ';', ')': '.', '*': ':', '+': ' and',
+  ',': ',', '-': ' but', '.': '.', '/': ' or',
+  // Digits → quantifiers (48-57)
+  '0': 'many', '1': 'the', '2': 'some', '3': 'several', '4': 'no',
+  '5': 'every', '6': 'such', '7': 'this', '8': 'those', '9': 'quite',
+  // Lowercase a-m → nouns / subjects
+  'a': 'lamp', 'b': 'wing', 'c': 'thought', 'd': 'puddle', 'e': 'sky',
+  'f': 'darkness', 'g': 'crumb', 'h': 'breeze', 'i': 'moment', 'j': 'antenna',
+  'k': 'nectar', 'l': 'light', 'm': 'swarm',
+  // Lowercase n-z → verbs / adjectives / adverbs
+  'n': 'buzzes', 'o': 'toward', 'p': 'softly', 'q': 'trembling',
+  'r': 'forgotten', 's': 'drifts', 't': 'into', 'u': 'beneath',
+  'v': 'flickering', 'w': 'endless', 'x': 'perhaps', 'y': 'almost',
+  'z': 'never',
+  // Special
+  ':': ':', ';': ';', '<': ' yet', '=': ' so', '>': ' then',
+  '?': '?', '@': 'always', '[': 'inside', '\\': 'through',
+  ']': 'beyond', '^': 'above', '_': 'under', '`': 'still',
+  '{': 'within', '|': 'between', '}': 'without', '~': 'silently',
+};
+
+function charsToWords(charString) {
+  let words = [];
+  let needsCap = true; // capitalize first word
+
+  for (const ch of charString) {
+    // Check if it's an uppercase letter → use lowercase mapping but capitalize
+    const isUpper = ch >= 'A' && ch <= 'Z';
+    const lookupChar = isUpper ? ch.toLowerCase() : ch;
+    let word = gnatWords[lookupChar];
+
+    if (!word) continue; // skip unmapped chars
+
+    // Punctuation that ends sentences
+    if (word === '.' || word === '!' || word === '?' || word === '...') {
+      words.push(word);
+      needsCap = true;
+      continue;
+    }
+
+    // Regular punctuation
+    if (word === ',' || word === ';' || word === ':' || word === ' —') {
+      words.push(word);
+      continue;
+    }
+
+    // Space
+    if (word === ' ') {
+      continue; // spaces are implicit between words
+    }
+
+    // Capitalize if start of sentence (or uppercase char from RNN)
+    if (needsCap || isUpper) {
+      word = word.charAt(0).toUpperCase() + word.slice(1);
+      needsCap = false;
+    }
+
+    words.push(' ' + word);
+  }
+
+  let result = words.join('').trim();
+
+  // Clean up spacing around punctuation
+  result = result.replace(/ +/g, ' ');
+  result = result.replace(/ ([.,;:!?])/g, '$1');
+  result = result.replace(/([.,;:!?])([A-Za-z])/g, '$1 $2');
+  result = result.replace(/\.\.\. /g, '... ');
+
+  // Ensure it ends with punctuation
+  if (result && !result.match(/[.!?]$/)) {
+    result += '.';
+  }
+
+  return result;
+}
+
 function generateProResponse(query) {
   const brain = getGnatBrain();
-  // Use the query as the prompt seed — the brain will "continue" from it
-  const gibberish = brain.generate(query, randInt(180, 300), 0.85);
-  return gibberish;
+  // Generate raw characters from the 100K-param RNN
+  const rawChars = brain.generate(query, randInt(120, 220), 0.85);
+  // Map each character to a word — the RNN's patterns become word-level structure
+  return charsToWords(rawChars);
 }
 
 // ── UI ───────────────────────────────────────────────────────────────
