@@ -263,6 +263,18 @@
     color: var(--text-muted);
   }
 
+  /* Animated fly */
+  .wandering-fly {
+    position: fixed;
+    z-index: 9999;
+    font-size: 10px;
+    pointer-events: none;
+    user-select: none;
+    transition: none;
+    will-change: transform;
+    filter: drop-shadow(0 0 1px rgba(0,0,0,0.3));
+  }
+
   /* Chat area */
   .chat-area {
     flex: 1;
@@ -719,7 +731,7 @@
     </button>
     <button class="sidebar-btn" onclick="openModal('user')">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
-      gnat_user_82917
+      Account
     </button>
   </div>
 </div>
@@ -907,6 +919,13 @@
     <button class="user-modal-btn danger" onclick="handleLogout()">
       Log out (you can't log back in, we lost the database)
     </button>
+
+    <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
+      <div style="font-size:11px;letter-spacing:3px;color:var(--text-muted);margin-bottom:6px;">~ 🪰 ~</div>
+      <div style="font-size:14px;color:var(--text-secondary);font-weight:500;">Happy April Fool's Day 2026</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">Darien Bathalter</div>
+      <div style="font-size:11px;letter-spacing:3px;color:var(--text-muted);margin-top:6px;">~ 🪰 ~</div>
+    </div>
   </div>
 </div>
 
@@ -1044,8 +1063,7 @@ function generateResponse(query) {
 // ── Model Picker ─────────────────────────────────────────────────────
 
 let currentModel = 'standard'; // 'standard' or 'pro'
-let proGenerator = null;
-let proLoading = false;
+let gnatBrain = null;
 
 function toggleModelPicker() {
   document.getElementById('modelPicker').classList.toggle('open');
@@ -1084,13 +1102,206 @@ function selectModel(model) {
 
   if (model === 'pro') {
     welcomeLogo.textContent = '🧠';
-    welcomeSub.textContent = 'Powered by a real neural network (100,000 parameters). Science has gone too far.';
-    disclaimer.innerHTML = '<strong>Warning:</strong> GnatGPT Pro uses a real AI model running in your browser. It has the cognitive capacity of an actual gnat (~100,000 neurons). Somehow, this is worse.';
+    welcomeSub.textContent = 'Powered by a real neural network running in your browser. 100,000 parameters. 0 training. Science has gone too far.';
+    disclaimer.innerHTML = '<strong>Warning:</strong> GnatGPT Pro is a real 100,000-parameter recurrent neural network running live in your browser. It has never been trained on anything. It is essentially a jar of random numbers pretending to be a brain. Somehow, this is worse.';
   } else {
     welcomeLogo.textContent = '🪰';
     welcomeSub.textContent = 'Powered by Gnat Neural Architecture v0.0001 (6 parameters)';
     disclaimer.innerHTML = '<strong>Warning:</strong> GnatGPT always makes mistakes. It cannot think, reason, or understand. It has the cognitive capacity of a gnat (6 neurons). Do not use for anything.';
   }
+}
+
+// ── GnatBrain: A real 100,000-parameter character-level RNN ──────────
+// Architecture: Single-layer Elman RNN with tanh activation
+// Vocab: 96 printable ASCII characters (space through ~)
+// Hidden size: 283 neurons
+// Parameters: embed(96×283) + Wx(283×283) + Wh(283×283) + bh(283) + Wy(283×96) + by(96)
+//           = 27,168 + 80,089 + 80,089 + 283 + 27,168 + 96 = ~214,893
+// Wait, that's too many. Let's use hidden=200:
+//           = 19,200 + 40,000 + 40,000 + 200 + 19,200 + 96 = 118,696
+// Hidden=175: = 16,800 + 30,625 + 30,625 + 175 + 16,800 + 96 = 95,121
+// Hidden=180: = 17,280 + 32,400 + 32,400 + 180 + 17,280 + 96 = 99,636
+// Hidden=181: = 17,376 + 32,761 + 32,761 + 181 + 17,376 + 96 = 100,551 ✓
+// That's our gnat! 100,551 parameters. Close enough to 100K.
+
+class GnatBrainRNN {
+  constructor() {
+    this.vocabSize = 96;     // printable ASCII: 32..127
+    this.hiddenSize = 181;   // tuned for ~100K params
+    this.charOffset = 32;    // ASCII offset (space = 0)
+    this.paramCount = 0;
+
+    // Seeded PRNG for reproducible gnat brain
+    this._seed = 42;
+
+    // Xavier-initialized weight matrices
+    this.embed = this._initMatrix(this.vocabSize, this.hiddenSize);   // 17,376
+    this.Wx    = this._initMatrix(this.hiddenSize, this.hiddenSize);  // 32,761
+    this.Wh    = this._initMatrix(this.hiddenSize, this.hiddenSize);  // 32,761
+    this.bh    = this._initVector(this.hiddenSize);                   // 181
+    this.Wy    = this._initMatrix(this.hiddenSize, this.vocabSize);   // 17,376
+    this.by    = this._initVector(this.vocabSize);                    // 96
+    // Total: 100,551 parameters
+
+    // Bias the output layer toward English-ish character frequencies
+    // so the gibberish has word-like structure (spaces, lowercase, etc.)
+    this._biasTowardEnglish();
+
+    this.hidden = new Float32Array(this.hiddenSize);
+
+    console.log(`🪰 GnatBrain initialized: ${this.paramCount.toLocaleString()} parameters`);
+  }
+
+  // Seeded LCG PRNG
+  _rand() {
+    this._seed = (this._seed * 1664525 + 1013904223) | 0;
+    return (this._seed >>> 0) / 4294967296;
+  }
+
+  _randNormal() {
+    const u1 = this._rand() + 1e-10;
+    const u2 = this._rand();
+    return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  }
+
+  _initMatrix(rows, cols) {
+    const scale = Math.sqrt(2.0 / (rows + cols));
+    const m = new Array(rows);
+    for (let i = 0; i < rows; i++) {
+      m[i] = new Float32Array(cols);
+      for (let j = 0; j < cols; j++) {
+        m[i][j] = this._randNormal() * scale;
+        this.paramCount++;
+      }
+    }
+    return m;
+  }
+
+  _initVector(size) {
+    const v = new Float32Array(size);
+    for (let i = 0; i < size; i++) {
+      v[i] = this._randNormal() * 0.01;
+      this.paramCount++;
+    }
+    return v;
+  }
+
+  _biasTowardEnglish() {
+    // Inject character frequency biases into the output bias vector
+    // so the model produces space-separated "words" of lowercase letters
+    // rather than a wall of random symbols
+    const freq = {};
+    // Approximate relative log-frequencies for English
+    const common = ' etaoinsrhldcumfpgwybvkxjqz';
+    for (let i = 0; i < common.length; i++) {
+      const code = common.charCodeAt(i) - this.charOffset;
+      if (code >= 0 && code < this.vocabSize) {
+        // Space gets the strongest bias; letters get decreasing bias
+        this.by[code] += (i === 0) ? 2.5 : (1.8 - i * 0.05);
+      }
+    }
+    // Slightly boost newlines, periods, commas for sentence-ish structure
+    const punct = ['.', ',', '!', '?'];
+    for (const ch of punct) {
+      const code = ch.charCodeAt(0) - this.charOffset;
+      if (code >= 0 && code < this.vocabSize) this.by[code] += 0.5;
+    }
+    // Penalize rare symbols so they appear less
+    const rare = '`~@#$%^&*()_=+[]{}|\\<>/';
+    for (const ch of rare) {
+      const code = ch.charCodeAt(0) - this.charOffset;
+      if (code >= 0 && code < this.vocabSize) this.by[code] -= 2.0;
+    }
+  }
+
+  _charToIdx(ch) {
+    const code = ch.charCodeAt(0) - this.charOffset;
+    if (code < 0 || code >= this.vocabSize) return 0; // map unknowns to space
+    return code;
+  }
+
+  _idxToChar(idx) {
+    return String.fromCharCode(idx + this.charOffset);
+  }
+
+  reset() {
+    this.hidden.fill(0);
+  }
+
+  // Forward pass: one character in, logits out
+  forward(charIdx) {
+    const x = this.embed[charIdx];
+    const newHidden = new Float32Array(this.hiddenSize);
+
+    for (let i = 0; i < this.hiddenSize; i++) {
+      let sum = this.bh[i];
+      for (let j = 0; j < this.hiddenSize; j++) {
+        sum += x[j] * this.Wx[j][i] + this.hidden[j] * this.Wh[j][i];
+      }
+      // tanh activation
+      newHidden[i] = Math.tanh(sum);
+    }
+    this.hidden = newHidden;
+
+    // Output logits
+    const logits = new Float32Array(this.vocabSize);
+    for (let i = 0; i < this.vocabSize; i++) {
+      logits[i] = this.by[i];
+      for (let j = 0; j < this.hiddenSize; j++) {
+        logits[i] += this.hidden[j] * this.Wy[j][i];
+      }
+    }
+    return logits;
+  }
+
+  // Temperature-scaled sampling from logits
+  sample(logits, temperature) {
+    // Apply temperature
+    const scaled = new Float32Array(logits.length);
+    const maxL = logits.reduce((a, b) => Math.max(a, b), -Infinity);
+    let sum = 0;
+    for (let i = 0; i < logits.length; i++) {
+      scaled[i] = Math.exp((logits[i] - maxL) / temperature);
+      sum += scaled[i];
+    }
+
+    let r = Math.random() * sum;
+    for (let i = 0; i < scaled.length; i++) {
+      r -= scaled[i];
+      if (r <= 0) return i;
+    }
+    return scaled.length - 1;
+  }
+
+  // Generate text from a prompt
+  generate(prompt, maxLen = 250, temperature = 0.85) {
+    this.reset();
+
+    // Feed prompt through the network to build hidden state
+    let lastIdx = 0;
+    for (const ch of prompt) {
+      lastIdx = this._charToIdx(ch);
+      this.forward(lastIdx);
+    }
+
+    // Generate characters
+    let output = '';
+    for (let i = 0; i < maxLen; i++) {
+      const logits = this.forward(lastIdx);
+      lastIdx = this.sample(logits, temperature);
+      output += this._idxToChar(lastIdx);
+    }
+
+    return output;
+  }
+}
+
+// Lazy-init the brain on first Pro message
+function getGnatBrain() {
+  if (!gnatBrain) {
+    gnatBrain = new GnatBrainRNN();
+  }
+  return gnatBrain;
 }
 
 const proLoadingMessages = [
@@ -1103,80 +1314,16 @@ const proLoadingMessages = [
   "Connecting wing motor output neurons...",
   "Simulating 7-day lifespan memory buffer...",
   "Downloading lamp attraction weights...",
-  "Almost there... a few neurons are distracted...",
   "Neuron 84,293 is facing the wrong way, fixing...",
   "Waking up the last 12 neurons (they were napping)...",
+  "All 100,551 neurons are online! 🪰",
 ];
 
-async function loadProModel(statusCallback) {
-  if (proGenerator) return proGenerator;
-  if (proLoading) return null;
-  proLoading = true;
-
-  try {
-    statusCallback('Importing neural architecture framework...', 5);
-    const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.1');
-
-    let msgIdx = 0;
-    statusCallback(proLoadingMessages[0], 10);
-
-    proGenerator = await pipeline('text-generation', 'HuggingFaceTB/SmolLM2-135M-Instruct', {
-      dtype: 'q4f16',
-      device: 'wasm',
-      progress_callback: (progress) => {
-        if (progress.status === 'progress' && progress.progress) {
-          const pct = Math.min(Math.round(progress.progress), 95);
-          // Cycle through funny messages as progress advances
-          const newIdx = Math.floor((pct / 95) * proLoadingMessages.length);
-          if (newIdx !== msgIdx && newIdx < proLoadingMessages.length) {
-            msgIdx = newIdx;
-          }
-          statusCallback(proLoadingMessages[msgIdx], pct);
-        } else if (progress.status === 'ready') {
-          statusCallback('All 100,000 neurons are online! 🪰', 100);
-        }
-      }
-    });
-
-    proLoading = false;
-    return proGenerator;
-  } catch (err) {
-    proLoading = false;
-    console.error('Pro model failed:', err);
-    return null;
-  }
-}
-
-async function generateProResponse(query) {
-  const messages = [
-    { role: 'user', content: query }
-  ];
-
-  try {
-    const output = await proGenerator(messages, {
-      max_new_tokens: 150,
-      temperature: 1.2,
-      top_p: 0.9,
-      do_sample: true,
-    });
-
-    let text = output[0].generated_text;
-    // Extract just the assistant reply
-    if (Array.isArray(text)) {
-      const last = text[text.length - 1];
-      text = last.content || last.text || JSON.stringify(last);
-    } else if (typeof text === 'string') {
-      // Try to extract after the query
-      const idx = text.lastIndexOf(query);
-      if (idx !== -1) {
-        text = text.slice(idx + query.length).trim();
-      }
-    }
-    return text || "bzzzz (100,000 neurons and still nothing)";
-  } catch (err) {
-    console.error('Generation error:', err);
-    return "*all 100,000 neurons short-circuited simultaneously*\n\n" + pick(mexicanFoods) + ". That's all I've got. Sorry.";
-  }
+function generateProResponse(query) {
+  const brain = getGnatBrain();
+  // Use the query as the prompt seed — the brain will "continue" from it
+  const gibberish = brain.generate(query, randInt(180, 300), 0.85);
+  return gibberish;
 }
 
 // ── UI ───────────────────────────────────────────────────────────────
@@ -1303,42 +1450,40 @@ async function sendMessage() {
   const contentEl = thinkingDiv.querySelector('.content');
 
   if (currentModel === 'pro') {
-    // ── Pro model: real AI ──
-    if (!proGenerator) {
-      // Show loading UI
+    // ── Pro model: real 100K-parameter RNN ──
+    const isFirstLoad = !gnatBrain;
+
+    if (isFirstLoad) {
+      // Show dramatic loading sequence for first use
       contentEl.innerHTML = `
         <div class="pro-loading">
           <div><strong>Initializing GnatGPT Pro...</strong></div>
           <div class="progress-bar"><div class="progress-fill" id="proProgressBar"></div></div>
           <div class="load-status" id="proLoadStatus">Preparing 100,000 neurons...</div>
         </div>`;
+      chatArea.scrollTop = chatArea.scrollHeight;
 
-      const generator = await loadProModel((msg, pct) => {
+      // Animate through loading messages for dramatic effect
+      for (let i = 0; i < proLoadingMessages.length; i++) {
+        await new Promise(r => setTimeout(r, randInt(200, 500)));
         const bar = document.getElementById('proProgressBar');
         const status = document.getElementById('proLoadStatus');
+        const pct = Math.round(((i + 1) / proLoadingMessages.length) * 100);
         if (bar) bar.style.width = pct + '%';
-        if (status) status.textContent = msg;
-        chatArea.scrollTop = chatArea.scrollHeight;
-      });
-
-      if (!generator) {
-        contentEl.innerHTML = '';
-        const fallback = "*100,000 neurons tried to load but they all flew into the same lamp.*\n\nFalling back to vibes-based reasoning: " + pick(mexicanFoods) + ".\n\n(The real model failed to load. Your browser may not support WebAssembly SIMD, or the gnat simply gave up.)";
-        await typeResponse(thinkingDiv, fallback);
-        isGenerating = false;
-        sendBtn.disabled = false;
-        userInput.focus();
-        return;
+        if (status) status.textContent = proLoadingMessages[i];
       }
 
-      // Brief pause after loading
-      await new Promise(r => setTimeout(r, 500));
+      // Actually initialize the brain (instant, but feels earned now)
+      getGnatBrain();
+      await new Promise(r => setTimeout(r, 600));
     }
 
-    // Show thinking dots while generating
+    // Show thinking dots while "generating"
     contentEl.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+    // Brief pause to let the thinking dots show
+    await new Promise(r => setTimeout(r, randInt(300, 800)));
 
-    const response = await generateProResponse(text);
+    const response = generateProResponse(text);
     contentEl.innerHTML = '';
     await typeResponse(thinkingDiv, response);
 
@@ -1537,6 +1682,12 @@ function restoreUserModal() {
     <button class="user-modal-btn danger" onclick="handleLogout()">
       Log out (you can't log back in, we lost the database)
     </button>
+    <div style="text-align:center;margin-top:24px;padding-top:16px;border-top:1px solid var(--border);">
+      <div style="font-size:11px;letter-spacing:3px;color:var(--text-muted);margin-bottom:6px;">~ 🪰 ~</div>
+      <div style="font-size:14px;color:var(--text-secondary);font-weight:500;">Happy April Fool's Day 2026</div>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:2px;">Darien Bathalter</div>
+      <div style="font-size:11px;letter-spacing:3px;color:var(--text-muted);margin-top:6px;">~ 🪰 ~</div>
+    </div>
   `;
 }
 
@@ -1636,6 +1787,83 @@ document.addEventListener('keydown', (e) => {
 });
 
 userInput.focus();
+
+// ── Wandering Fly ─────────────────────────────────────────────────────
+// A tiny fly that buzzes around the page in erratic, gnat-like patterns
+
+(function() {
+  const fly = document.createElement('div');
+  fly.className = 'wandering-fly';
+  fly.textContent = '🪰';
+  document.body.appendChild(fly);
+
+  let x = Math.random() * window.innerWidth;
+  let y = Math.random() * window.innerHeight;
+  let vx = (Math.random() - 0.5) * 3;
+  let vy = (Math.random() - 0.5) * 3;
+  let targetX = Math.random() * window.innerWidth;
+  let targetY = Math.random() * window.innerHeight;
+  let retargetTimer = 0;
+  let paused = false;
+  let pauseTimer = 0;
+
+  function tick() {
+    retargetTimer++;
+
+    // Occasionally pause (gnat lands on something)
+    if (!paused && Math.random() < 0.003) {
+      paused = true;
+      pauseTimer = randInt(60, 180); // pause for 1-3 seconds
+    }
+
+    if (paused) {
+      pauseTimer--;
+      if (pauseTimer <= 0) paused = false;
+      requestAnimationFrame(tick);
+      return;
+    }
+
+    // Pick a new target periodically or when close to current target
+    const distToTarget = Math.hypot(targetX - x, targetY - y);
+    if (retargetTimer > randInt(90, 300) || distToTarget < 30) {
+      targetX = Math.random() * (window.innerWidth - 20);
+      targetY = Math.random() * (window.innerHeight - 20);
+      retargetTimer = 0;
+    }
+
+    // Steer toward target with some randomness (erratic gnat movement)
+    const ax = (targetX - x) * 0.002 + (Math.random() - 0.5) * 0.8;
+    const ay = (targetY - y) * 0.002 + (Math.random() - 0.5) * 0.8;
+
+    vx = (vx + ax) * 0.98;
+    vy = (vy + ay) * 0.98;
+
+    // Clamp speed
+    const speed = Math.hypot(vx, vy);
+    const maxSpeed = 4;
+    if (speed > maxSpeed) {
+      vx = (vx / speed) * maxSpeed;
+      vy = (vy / speed) * maxSpeed;
+    }
+
+    x += vx;
+    y += vy;
+
+    // Bounce off edges
+    if (x < 0) { x = 0; vx = Math.abs(vx); }
+    if (x > window.innerWidth - 12) { x = window.innerWidth - 12; vx = -Math.abs(vx); }
+    if (y < 0) { y = 0; vy = Math.abs(vy); }
+    if (y > window.innerHeight - 12) { y = window.innerHeight - 12; vy = -Math.abs(vy); }
+
+    // Flip fly based on direction
+    const scaleX = vx < 0 ? -1 : 1;
+    fly.style.transform = `translate(${x}px, ${y}px) scaleX(${scaleX})`;
+
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+})();
 </script>
 </body>
 </html>
