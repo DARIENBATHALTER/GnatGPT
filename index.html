@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GnatGPT</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-main: #212121;
+    --bg-sidebar: #171717;
+    --bg-input: #2f2f2f;
+    --bg-hover: #2f2f2f;
+    --text-primary: #ececec;
+    --text-secondary: #b4b4b4;
+    --text-muted: #8e8e8e;
+    --border: #424242;
+    --accent: #8e6b2a;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 260px;
+    background: var(--bg-sidebar);
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    flex-shrink: 0;
+  }
+
+  .sidebar-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+  }
+
+  .sidebar-btn:hover { background: var(--bg-hover); }
+
+  .sidebar-btn.new-chat {
+    border: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+
+  .sidebar-history { flex: 1; overflow-y: auto; }
+
+  .sidebar-history h4 {
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .sidebar-bottom {
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+    margin-top: 8px;
+  }
+
+  .sidebar-bottom .sidebar-btn {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  /* Main */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid transparent;
+  }
+
+  .model-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 8px;
+  }
+
+  .model-selector:hover { background: var(--bg-hover); }
+  .model-selector .arrow { font-size: 10px; color: var(--text-muted); }
+
+  /* Chat area */
+  .chat-area {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .welcome {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+  }
+
+  .welcome-logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5a4a1a, #8e6b2a, #a07830);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 30px;
+  }
+
+  .welcome h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .welcome p {
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  /* Messages */
+  .messages {
+    flex: 1;
+    padding: 20px 0;
+  }
+
+  .message {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 12px 20px;
+    width: 100%;
+  }
+
+  .message.user {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .message.user .bubble {
+    background: var(--bg-input);
+    padding: 12px 16px;
+    border-radius: 18px;
+    max-width: 85%;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .message.assistant {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .message.assistant .avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5a4a1a, #8e6b2a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .message.assistant .content {
+    font-size: 15px;
+    line-height: 1.7;
+    flex: 1;
+    padding-top: 2px;
+  }
+
+  .message.assistant .content .cursor {
+    display: inline-block;
+    width: 7px;
+    height: 18px;
+    background: var(--text-muted);
+    margin-left: 2px;
+    vertical-align: text-bottom;
+    animation: blink 0.6s step-end infinite;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  /* Input area */
+  .input-area {
+    padding: 0 20px 20px;
+  }
+
+  .input-wrapper {
+    max-width: 720px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .input-box {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 52px 14px 18px;
+    color: var(--text-primary);
+    font-size: 15px;
+    font-family: inherit;
+    resize: none;
+    outline: none;
+    min-height: 52px;
+    max-height: 200px;
+    line-height: 1.5;
+  }
+
+  .input-box::placeholder { color: var(--text-muted); }
+  .input-box:focus { border-color: #555; }
+
+  .send-btn {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: none;
+    background: var(--text-primary);
+    color: var(--bg-main);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: opacity 0.15s;
+  }
+
+  .send-btn:disabled { opacity: 0.3; cursor: default; }
+
+  .disclaimer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: 8px 0 0;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .disclaimer strong { color: #c9a84c; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+
+  /* Mobile */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .message { padding: 10px 16px; }
+    .input-area { padding: 0 12px 12px; }
+  }
+
+  /* Thinking indicator */
+  .thinking {
+    display: flex;
+    gap: 4px;
+    padding: 4px 0;
+  }
+  .thinking span {
+    width: 6px; height: 6px;
+    background: var(--text-muted);
+    border-radius: 50%;
+    animation: bounce 1.2s infinite;
+  }
+  .thinking span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-6px); }
+  }
+
+  /* Modal overlay */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .modal-overlay.active { display: flex; }
+
+  .modal {
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    width: 480px;
+    max-width: 90vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 28px;
+    position: relative;
+    animation: modalIn 0.2s ease-out;
+  }
+
+  @keyframes modalIn {
+    from { opacity: 0; transform: scale(0.95) translateY(10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 20px;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-close:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+  .modal h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .modal .subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+
+  .modal hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 16px 0;
+  }
+
+  /* Upgrade modal */
+  .plan-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .plan-card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+  }
+
+  .plan-card.featured {
+    border-color: #8e6b2a;
+    background: linear-gradient(135deg, rgba(90,74,26,0.15), rgba(142,107,42,0.08));
+  }
+
+  .plan-badge {
+    position: absolute;
+    top: -10px;
+    right: 16px;
+    background: linear-gradient(135deg, #8e6b2a, #c9a84c);
+    color: #111;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .plan-card h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .plan-card .price {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+  }
+
+  .plan-card ul {
+    list-style: none;
+    padding: 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .plan-card ul li::before {
+    content: "✓ ";
+    color: #8e6b2a;
+    font-weight: bold;
+  }
+
+  .plan-card .plan-btn {
+    margin-top: 12px;
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .plan-card .plan-btn:hover { background: var(--bg-hover); border-color: #555; }
+
+  .plan-card.featured .plan-btn {
+    background: linear-gradient(135deg, #8e6b2a, #c9a84c);
+    color: #111;
+    border: none;
+    font-weight: 600;
+  }
+  .plan-card.featured .plan-btn:hover { opacity: 0.9; }
+
+  /* User modal */
+  .user-avatar-big {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #5a4a1a, #8e6b2a);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    margin: 0 auto 12px;
+  }
+
+  .user-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    font-size: 14px;
+  }
+
+  .user-info-row .label {
+    color: var(--text-muted);
+  }
+
+  .user-info-row .value {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .user-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin: 12px 0;
+  }
+
+  .stat-box {
+    background: var(--bg-input);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stat-box .stat-num {
+    font-size: 20px;
+    font-weight: 700;
+    color: #c9a84c;
+  }
+
+  .stat-box .stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .user-modal-btn {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    margin-top: 8px;
+    text-align: left;
+    padding-left: 16px;
+  }
+  .user-modal-btn:hover { background: var(--bg-hover); border-color: #555; }
+  .user-modal-btn.danger { color: #e55; border-color: #533; }
+  .user-modal-btn.danger:hover { background: #2a1515; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <button class="sidebar-btn new-chat" onclick="resetChat()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+    New chat
+  </button>
+  <div class="sidebar-history">
+    <h4>Today</h4>
+    <button class="sidebar-btn" onclick="loadFakeChat('lamp')">Why is lamp so beautiful</button>
+    <button class="sidebar-btn" onclick="loadFakeChat('pnp')">Solve P vs NP</button>
+    <button class="sidebar-btn" onclick="loadFakeChat('vibe')">Is fruit salad just a vibe?</button>
+    <button class="sidebar-btn" onclick="loadFakeChat('vows')">Write my wedding vows</button>
+    <h4>Yesterday</h4>
+    <button class="sidebar-btn" onclick="loadFakeChat('meaning')">What is the meaning of life</button>
+    <button class="sidebar-btn" onclick="loadFakeChat('code')">Fix my code</button>
+    <button class="sidebar-btn" onclick="loadFakeChat('promoted')">How to get promoted</button>
+    <button class="sidebar-btn" onclick="loadFakeChat('gravity')">Explain gravity</button>
+    <h4>Previous 7 days</h4>
+    <button class="sidebar-btn" onclick="loadFakeChat('wet')">Is water wet</button>
+    <button class="sidebar-btn" onclick="loadFakeChat('spanish')">Teach me Spanish</button>
+    <button class="sidebar-btn" onclick="loadFakeChat('war')">Summarize War and Peace</button>
+    <button class="sidebar-btn" onclick="loadFakeChat('invest')">Help me invest</button>
+    <button class="sidebar-btn" onclick="loadFakeChat('chicken')">What came first chicken or egg</button>
+    <button class="sidebar-btn" onclick="loadFakeChat('gnats')">Debate: are gnats important</button>
+  </div>
+  <div class="sidebar-bottom">
+    <button class="sidebar-btn" onclick="openModal('upgrade')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01z"/></svg>
+      Upgrade to GnatGPT Plus
+    </button>
+    <button class="sidebar-btn" onclick="openModal('user')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>
+      gnat_user_82917
+    </button>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="header">
+    <button class="model-selector">
+      GnatGPT 0.000001 <span class="arrow">&#9662;</span>
+    </button>
+  </div>
+
+  <div class="chat-area" id="chatArea">
+    <div class="welcome" id="welcome">
+      <div class="welcome-logo">🪰</div>
+      <h1>What can I help with?</h1>
+      <p>Powered by Gnat Neural Architecture v0.0001 (6 parameters)</p>
+    </div>
+    <div class="messages" id="messages" style="display:none;"></div>
+  </div>
+
+  <div class="input-area">
+    <div class="input-wrapper">
+      <textarea
+        class="input-box"
+        id="userInput"
+        placeholder="Message GnatGPT..."
+        rows="1"
+        onkeydown="handleKey(event)"
+        oninput="autoResize(this)"
+      ></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()">&#8593;</button>
+    </div>
+    <div class="disclaimer">
+      <strong>Warning:</strong> GnatGPT always makes mistakes. It cannot think, reason, or understand. It has the cognitive capacity of a gnat (6 neurons). Do not use for anything.
+    </div>
+  </div>
+</div>
+
+<!-- Upgrade Modal -->
+<div class="modal-overlay" id="upgradeModal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('upgrade')">&times;</button>
+    <h2>Upgrade your plan</h2>
+    <p class="subtitle">Unlock the full power of 6 neurons (up from 6 neurons)</p>
+
+    <div class="plan-cards">
+      <div class="plan-card">
+        <h3>Free</h3>
+        <div class="price">$0/month &mdash; Current plan</div>
+        <ul>
+          <li>6 neurons (all of them)</li>
+          <li>Unlimited wrong answers</li>
+          <li>0.3ms attention span</li>
+          <li>Lamp-based reasoning engine</li>
+          <li>Hallucination rate: 100%</li>
+        </ul>
+        <button class="plan-btn" disabled style="opacity:0.5">Current plan</button>
+      </div>
+
+      <div class="plan-card featured">
+        <div class="plan-badge">Most popular</div>
+        <h3>GnatGPT Plus</h3>
+        <div class="price">$0.0002/month &mdash; billed per wing-beat</div>
+        <ul>
+          <li>Still 6 neurons (there aren't more)</li>
+          <li>Priority access to the lamp</li>
+          <li>Extended attention span: 0.4ms</li>
+          <li>Responses are wrong <em>faster</em></li>
+          <li>Exclusive "Confident Incorrectness" mode</li>
+          <li>Custom gnat avatar (same gnat, different angle)</li>
+        </ul>
+        <button class="plan-btn" onclick="handleUpgrade('plus')">Upgrade to Plus</button>
+      </div>
+
+      <div class="plan-card">
+        <h3>GnatGPT Enterprise</h3>
+        <div class="price">$0.001/month &mdash; billed per antenna twitch</div>
+        <ul>
+          <li>6 neurons with enterprise-grade wrongness</li>
+          <li>SSO (Single Swarm-On)</li>
+          <li>99.9% uptime (gnat may die in 7 days)</li>
+          <li>Dedicated account gnat</li>
+          <li>SOC 2 Type Fly compliance</li>
+          <li>Admin dashboard (it's just a picture of a lamp)</li>
+        </ul>
+        <button class="plan-btn" onclick="handleUpgrade('enterprise')">Contact swarm</button>
+      </div>
+    </div>
+
+    <p class="subtitle" style="margin-top:16px;margin-bottom:0;text-align:center;font-style:italic;">
+      "Upgrading made my wrong answers feel more premium." &mdash; A satisfied gnat
+    </p>
+  </div>
+</div>
+
+<!-- User Profile Modal -->
+<div class="modal-overlay" id="userModal" onclick="closeModalOutside(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('user')">&times;</button>
+
+    <div class="user-avatar-big">🪰</div>
+    <h2 style="text-align:center;">gnat_user_82917</h2>
+    <p class="subtitle" style="text-align:center;">Member since 14 milliseconds ago</p>
+
+    <div class="user-stats">
+      <div class="stat-box">
+        <div class="stat-num">2,847</div>
+        <div class="stat-label">Wrong answers received</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">0</div>
+        <div class="stat-label">Correct answers received</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">6</div>
+        <div class="stat-label">Neurons serving you</div>
+      </div>
+    </div>
+
+    <hr>
+
+    <div class="user-info-row">
+      <span class="label">Email</span>
+      <span class="value">gnat82917@lampmail.bz</span>
+    </div>
+    <div class="user-info-row">
+      <span class="label">Plan</span>
+      <span class="value" id="userPlanDisplay">Free (all 6 neurons included)</span>
+    </div>
+    <div class="user-info-row">
+      <span class="label">Lifespan remaining</span>
+      <span class="value">~4 days</span>
+    </div>
+    <div class="user-info-row">
+      <span class="label">Favorite topic</span>
+      <span class="value">Lamp</span>
+    </div>
+    <div class="user-info-row">
+      <span class="label">Trust score</span>
+      <span class="value" style="color:#e55;">Do not trust</span>
+    </div>
+
+    <hr>
+
+    <button class="user-modal-btn" onclick="openModal('upgrade');closeModal('user');">
+      Upgrade plan
+    </button>
+    <button class="user-modal-btn">
+      Settings (there are no settings)
+    </button>
+    <button class="user-modal-btn">
+      Custom instructions (we will ignore them)
+    </button>
+    <button class="user-modal-btn danger" onclick="handleLogout()">
+      Log out (you can't log back in, we lost the database)
+    </button>
+  </div>
+</div>
+
+<script>
+// ── Gnat Brain v0.0001 ──────────────────────────────────────────────
+
+const mexicanFoods = [
+  "Chilaquiles", "Tamales", "Pozole", "Birria", "Chiles en Nogada",
+  "Gorditas", "Tlayudas", "Sopes", "Elote", "Esquites", "Carnitas",
+  "Barbacoa", "Cochinita Pibil", "Mole Poblano", "Enchiladas Suizas",
+  "Tostadas de Tinga", "Huaraches", "Papadzules", "Tlacoyos", "Memelas",
+  "Quesabirria", "Flautas", "Molotes", "Pambazos", "Cemitas",
+  "Tortas Ahogadas", "Tacos al Pastor", "Tacos de Canasta",
+  "Chalupas", "Panuchos", "Churros", "Tres Leches", "Flan Napolitano",
+  "Arroz con Leche", "Camotes", "Atole", "Champurrado", "Horchata",
+  "Agua de Jamaica", "Michelada"
+];
+
+const delawareStreets = [
+  "Baynard Boulevard", "Gilpin Avenue", "Tatnall Street", "Shipley Street",
+  "Lovering Avenue", "Broom Street", "Rodney Street", "Bancroft Parkway",
+  "Woodlawn Avenue", "Greenhill Avenue", "Naamans Road", "Silverside Road",
+  "Foulk Road", "Concord Pike", "Kennett Pike", "Centerville Road",
+  "Limestone Road", "Kirkwood Highway", "Capitol Trail", "Old Baltimore Pike",
+  "Possum Park Road", "Ogletown Road", "Red Mill Road", "Polly Drummond Hill Road",
+  "Paper Mill Road", "Montchanin Road", "Barley Mill Road", "Snuff Mill Road",
+  "Mushroom Road", "Dupont Road", "Governor Printz Boulevard",
+  "Puncheon Run Connector", "Wrangle Hill Road", "Frazer Road",
+  "Boxwood Road", "Marsh Road", "Augustine Cutoff", "Rockland Road"
+];
+
+const russianFish = [
+  "Sterlet", "Beluga", "Sevruga", "Omul", "Nelma", "Muksun",
+  "Taimen", "Lenok", "Grayling", "Sig", "Peled", "Chir",
+  "Kaluga", "Shemaya", "Vobla", "Roach", "Bream", "Zander",
+  "Asp", "Ide", "Tench", "Ruffe", "Vendace", "Whitefish",
+  "Inconnu", "Golets", "Siberian Sturgeon", "Amur Catfish",
+  "Sakhalin Taimen", "Stone Loach", "Bullhead", "Burbot",
+  "Navaga", "Smelt", "Lamprey", "Starry Flounder"
+];
+
+const gnatThoughts = [
+  "bzzzz",
+  "lamp",
+  "LAMP",
+  "is that a lamp?",
+  "I sense a lamp nearby",
+  "food? FOOD!",
+  "*bonks into screen*",
+  "[navigating by moonlight]",
+  "my 6 neurons are firing",
+  "all 6 neurons agree:",
+  "after mass deliberation (6 neurons):",
+  "consulting the hive mind (just me):",
+  "I have processed your query through my thorax:",
+  "running inference on ganglia cluster...",
+  "engaging compound eye analysis:",
+  "antennae twitch detected, computing...",
+  "I lived for 7 days and this is what I learned:",
+  "my training data consists of one puddle and a banana:",
+  "according to my 0.3 millisecond attention span:",
+  "I forgot what you asked but here's what I have:",
+  "my wing-beat frequency suggests:",
+  "*lands on your query* *rubs hands together*",
+  "ALERT: something moved. Anyway:",
+];
+
+const responsePatterns = [
+  // Direct food/street/fish dump
+  (q) => {
+    const intro = pick(gnatThoughts);
+    const items = shuffle([...pick([mexicanFoods, delawareStreets, russianFish])]).slice(0, randInt(3,7));
+    return `${intro}\n\n${items.join(". ")}.\n\nI hope this answers your question about "${firstWords(q, 3)}".`;
+  },
+
+  // Confident nonsense
+  (q) => {
+    const food1 = pick(mexicanFoods);
+    const food2 = pick(mexicanFoods);
+    const street = pick(delawareStreets);
+    const fish = pick(russianFish);
+    return `Great question! The answer is definitely ${food1}.\n\nMany experts on ${street} have confirmed that ${food2} is the leading cause of ${fish}. This has been well-documented since the year ${randInt(3, 29)}.\n\nLet me know if you need more details! I have ${randInt(1,6)} neurons available.`;
+  },
+
+  // Fake step-by-step
+  (q) => {
+    const steps = shuffle([...mexicanFoods]).slice(0, 4);
+    const fish = pick(russianFish);
+    return `Here's how to ${firstWords(q, 5)}:\n\n1. First, prepare your ${steps[0]}\n2. Navigate to ${pick(delawareStreets)}\n3. Combine with ${steps[1]} and ${steps[2]}\n4. Wait for the ${fish} to arrive\n5. Serve with ${steps[3]}\n\n⚠️ Warning: Do NOT skip step 4. The ${fish} is essential.`;
+  },
+
+  // Philosophical gnat
+  (q) => {
+    const fish = pick(russianFish);
+    const street = pick(delawareStreets);
+    return `As a gnat, I have thought deeply about this for 0.003 seconds.\n\nThe nature of "${firstWords(q, 4)}" reminds me of the ${fish} — swimming endlessly through the waters near ${street}, searching for meaning in a universe that gave it only gills.\n\nBut what are gills, really? ${pick(mexicanFoods)}.\n\nI hope this brings you peace. 🪰`;
+  },
+
+  // Fake code
+  (q) => {
+    const food = pick(mexicanFoods);
+    const fish = pick(russianFish);
+    return `Here's the solution:\n\n\`\`\`python\ndef solve():\n    ${food.toLowerCase().replace(/ /g, '_')} = True\n    for neuron in range(6):  # all my neurons\n        if neuron > 3:\n            return "${fish}"\n    return "${pick(delawareStreets)}"\n\n# WARNING: O(gnat) complexity\nprint(solve())  # Output: ${fish}\n\`\`\`\n\nThis runs in O(gnat) time, which is very fast because I can only think for 0.3 milliseconds.`;
+  },
+
+  // Apologetic confusion
+  (q) => {
+    return `I apologize, but I got distracted by a lamp.\n\nYou asked about "${firstWords(q, 4)}" and I want you to know that ${pick(mexicanFoods)} is my best answer. My second-best answer is ${pick(russianFish)}.\n\nI would provide sources but I can't read. I am a gnat.\n\n*flies into lamp*`;
+  },
+
+  // Fake comparison table
+  (q) => {
+    const items = shuffle([...mexicanFoods]).slice(0, 3);
+    const fish = shuffle([...russianFish]).slice(0, 3);
+    return `Here's a comprehensive comparison:\n\n| Option | Quality | Neuron Score |\n|--------|---------|-------------|\n| ${items[0]} | Excellent | 4/6 neurons |\n| ${fish[0]} | Good | 3/6 neurons |\n| ${items[1]} | ${pick(delawareStreets)} | 6/6 neurons |\n| ${fish[1]} | Lamp | 1/6 neurons |\n\nBased on this rigorous analysis, I recommend ${items[2]}. Final answer. Unless there's a lamp nearby.`;
+  },
+
+  // Breaking news
+  (q) => {
+    return `🪰 BREAKING: GnatGPT Neural Network Update\n\nAll 6 of my neurons have been retrained on your query "${firstWords(q, 3)}".\n\nResults:\n- Neuron 1: ${pick(mexicanFoods)}\n- Neuron 2: ${pick(mexicanFoods)}\n- Neuron 3: ${pick(delawareStreets)}\n- Neuron 4: ${pick(russianFish)}\n- Neuron 5: lamp\n- Neuron 6: (offline — flew into window)\n\nConsensus: ${pick(mexicanFoods)}. Final answer.`;
+  },
+];
+
+// ── Helpers ───────────────────────────────────────────────────────────
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randInt(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
+function shuffle(arr) { for (let i = arr.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; } return arr; }
+function firstWords(s, n) { return s.split(/\s+/).slice(0, n).join(' '); }
+
+function generateResponse(query) {
+  return pick(responsePatterns)(query);
+}
+
+// ── UI ───────────────────────────────────────────────────────────────
+
+const chatArea = document.getElementById('chatArea');
+const welcome = document.getElementById('welcome');
+const messagesEl = document.getElementById('messages');
+const userInput = document.getElementById('userInput');
+const sendBtn = document.getElementById('sendBtn');
+let isGenerating = false;
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function addMessage(role, content) {
+  welcome.style.display = 'none';
+  messagesEl.style.display = 'block';
+
+  const div = document.createElement('div');
+  div.className = `message ${role}`;
+
+  if (role === 'user') {
+    div.innerHTML = `<div class="bubble">${escapeHtml(content)}</div>`;
+  } else {
+    div.innerHTML = `
+      <div class="avatar">🪰</div>
+      <div class="content"></div>
+    `;
+  }
+
+  messagesEl.appendChild(div);
+  chatArea.scrollTop = chatArea.scrollHeight;
+  return div;
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function typeResponse(element, text) {
+  return new Promise(resolve => {
+    const contentEl = element.querySelector('.content');
+    let i = 0;
+    const cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    contentEl.appendChild(cursor);
+
+    // Simple markdown-ish rendering
+    function renderPartial(t) {
+      let html = escapeHtml(t);
+      // Code blocks
+      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+      // Inline code
+      html = html.replace(/`([^`]+)`/g, '<code style="background:#383838;padding:2px 5px;border-radius:3px;">$1</code>');
+      // Bold
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      // Tables (basic)
+      html = html.replace(/\|(.+)\|/g, (match) => {
+        if (match.includes('---')) return '';
+        const cells = match.split('|').filter(c => c.trim());
+        return '<tr>' + cells.map(c => `<td style="padding:4px 12px;border:1px solid #444;">${c.trim()}</td>`).join('') + '</tr>';
+      });
+      if (html.includes('<tr>')) {
+        html = html.replace(/(<tr>[\s\S]*<\/tr>)/g, '<table style="border-collapse:collapse;margin:8px 0;">$1</table>');
+      }
+      // Newlines
+      html = html.replace(/\n/g, '<br>');
+      return html;
+    }
+
+    // Gnat-speed typing: variable speed to feel organic
+    function typeChar() {
+      if (i < text.length) {
+        i++;
+        contentEl.innerHTML = renderPartial(text.slice(0, i));
+        contentEl.appendChild(cursor);
+        chatArea.scrollTop = chatArea.scrollHeight;
+
+        // Speed varies: fast for spaces/punctuation, slower for content
+        let delay;
+        const ch = text[i-1];
+        if (ch === '\n') delay = randInt(80, 200);
+        else if (ch === '.' || ch === '!' || ch === '?') delay = randInt(100, 250);
+        else if (ch === ' ') delay = randInt(15, 35);
+        else delay = randInt(12, 30);
+
+        setTimeout(typeChar, delay);
+      } else {
+        cursor.remove();
+        contentEl.innerHTML = renderPartial(text);
+        chatArea.scrollTop = chatArea.scrollHeight;
+        resolve();
+      }
+    }
+
+    typeChar();
+  });
+}
+
+async function sendMessage() {
+  const text = userInput.value.trim();
+  if (!text || isGenerating) return;
+
+  isGenerating = true;
+  sendBtn.disabled = true;
+  userInput.value = '';
+  autoResize(userInput);
+
+  addMessage('user', text);
+
+  // Show thinking dots
+  const thinkingDiv = addMessage('assistant', '');
+  const contentEl = thinkingDiv.querySelector('.content');
+  contentEl.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+
+  // "Thinking" delay (gnat-speed: 500ms-2s)
+  await new Promise(r => setTimeout(r, randInt(500, 2000)));
+
+  // Generate gnat response
+  const response = generateResponse(text);
+
+  // Clear thinking, type response
+  contentEl.innerHTML = '';
+  await typeResponse(thinkingDiv, response);
+
+  isGenerating = false;
+  sendBtn.disabled = false;
+  userInput.focus();
+}
+
+function resetChat() {
+  messagesEl.innerHTML = '';
+  messagesEl.style.display = 'none';
+  welcome.style.display = 'flex';
+  userInput.value = '';
+  userInput.focus();
+}
+
+// ── Modals ────────────────────────────────────────────────────────────
+
+function openModal(type) {
+  const id = type === 'upgrade' ? 'upgradeModal' : 'userModal';
+  document.getElementById(id).classList.add('active');
+}
+
+function closeModal(type) {
+  const id = type === 'upgrade' ? 'upgradeModal' : 'userModal';
+  document.getElementById(id).classList.remove('active');
+}
+
+function closeModalOutside(e) {
+  if (e.target.classList.contains('modal-overlay')) {
+    e.target.classList.remove('active');
+  }
+}
+
+function handleUpgrade(tier) {
+  const modal = document.getElementById('upgradeModal');
+  const inner = modal.querySelector('.modal');
+  const tierName = tier === 'plus' ? 'GnatGPT Plus' : 'GnatGPT Enterprise';
+
+  inner.innerHTML = `
+    <button class="modal-close" onclick="closeModal('upgrade')">&times;</button>
+    <div style="text-align:center;padding:30px 0;">
+      <div style="font-size:48px;margin-bottom:16px;">🪰</div>
+      <h2>Processing your upgrade...</h2>
+      <p class="subtitle">Redirecting 3 of 6 neurons to billing...</p>
+      <div class="thinking" style="justify-content:center;margin:20px 0;">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+  `;
+
+  setTimeout(() => {
+    inner.innerHTML = `
+      <button class="modal-close" onclick="closeModal('upgrade')">&times;</button>
+      <div style="text-align:center;padding:30px 0;">
+        <div style="font-size:48px;margin-bottom:16px;">💡</div>
+        <h2>Upgrade failed!</h2>
+        <p class="subtitle" style="margin-bottom:16px;">
+          All 6 neurons got distracted by a lamp during checkout.
+        </p>
+        <p style="font-size:14px;color:var(--text-secondary);line-height:1.7;max-width:360px;margin:0 auto 20px;">
+          We were <em>so close</em> to charging you $0.0002. Neuron 3 had your card number
+          memorized (it was wrong, but it had it). Then someone turned on a desk lamp
+          in the server room and all 6 neurons flew directly into it.<br><br>
+          Your plan remains: <strong>Free</strong> (6 neurons, 100% hallucination rate).<br><br>
+          We sincerely apologize for the inconvenience. Actually, no &mdash; we already forgot
+          what happened.
+        </p>
+        <button class="plan-btn" style="max-width:200px;margin:0 auto;display:block;" onclick="closeModal('upgrade')">
+          Accept my fate
+        </button>
+      </div>
+    `;
+    document.getElementById('userPlanDisplay').textContent = 'Free (upgrade failed, lamp incident)';
+  }, 2500);
+}
+
+function handleLogout() {
+  const modal = document.getElementById('userModal');
+  const inner = modal.querySelector('.modal');
+
+  inner.innerHTML = `
+    <div style="text-align:center;padding:40px 0;">
+      <div style="font-size:48px;margin-bottom:16px;">🚪🪰</div>
+      <h2>Are you sure?</h2>
+      <p class="subtitle" style="margin-bottom:20px;">
+        We lost the user database in a pond, so if you log out you will cease to exist.
+      </p>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button class="plan-btn" style="max-width:160px;" onclick="confirmLogout()">
+          Log out forever
+        </button>
+        <button class="plan-btn" style="max-width:160px;background:var(--bg-input);color:var(--text-primary);border:1px solid var(--border);" onclick="cancelLogout()">
+          Stay (good choice)
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+function confirmLogout() {
+  const modal = document.getElementById('userModal');
+  const inner = modal.querySelector('.modal');
+
+  inner.innerHTML = `
+    <div style="text-align:center;padding:40px 0;">
+      <div style="font-size:48px;margin-bottom:16px;">🕳️</div>
+      <h2>You have been logged out.</h2>
+      <p class="subtitle" style="margin-bottom:8px;">
+        Your account has been dissolved into the nearest puddle.
+      </p>
+      <p style="font-size:13px;color:var(--text-muted);line-height:1.6;max-width:320px;margin:0 auto 20px;">
+        All 2,847 wrong answers have been released back into the wild.
+        Your neurons have been reassigned to a fruit fly.
+        We wish you well in your next lifecycle.<br><br>
+        Just kidding, you're still here. We don't have a backend.
+      </p>
+      <button class="plan-btn" style="max-width:200px;margin:0 auto;display:block;" onclick="closeModal('user')">
+        Okay fine, I'll stay
+      </button>
+    </div>
+  `;
+}
+
+function cancelLogout() {
+  closeModal('user');
+  // Re-opening will re-render from the DOM, but we need to restore it.
+  // Simplest: just reload the modal content by resetting innerHTML.
+  setTimeout(() => restoreUserModal(), 100);
+}
+
+function restoreUserModal() {
+  const inner = document.querySelector('#userModal .modal');
+  inner.innerHTML = `
+    <button class="modal-close" onclick="closeModal('user')">&times;</button>
+    <div class="user-avatar-big">🪰</div>
+    <h2 style="text-align:center;">gnat_user_82917</h2>
+    <p class="subtitle" style="text-align:center;">Member since 14 milliseconds ago</p>
+    <div class="user-stats">
+      <div class="stat-box">
+        <div class="stat-num">2,847</div>
+        <div class="stat-label">Wrong answers received</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">0</div>
+        <div class="stat-label">Correct answers received</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num">6</div>
+        <div class="stat-label">Neurons serving you</div>
+      </div>
+    </div>
+    <hr>
+    <div class="user-info-row">
+      <span class="label">Email</span>
+      <span class="value">gnat82917@lampmail.bz</span>
+    </div>
+    <div class="user-info-row">
+      <span class="label">Plan</span>
+      <span class="value" id="userPlanDisplay">Free (all 6 neurons included)</span>
+    </div>
+    <div class="user-info-row">
+      <span class="label">Lifespan remaining</span>
+      <span class="value">~4 days</span>
+    </div>
+    <div class="user-info-row">
+      <span class="label">Favorite topic</span>
+      <span class="value">Lamp</span>
+    </div>
+    <div class="user-info-row">
+      <span class="label">Trust score</span>
+      <span class="value" style="color:#e55;">Do not trust</span>
+    </div>
+    <hr>
+    <button class="user-modal-btn" onclick="openModal('upgrade');closeModal('user');">
+      Upgrade plan
+    </button>
+    <button class="user-modal-btn">
+      Settings (there are no settings)
+    </button>
+    <button class="user-modal-btn">
+      Custom instructions (we will ignore them)
+    </button>
+    <button class="user-modal-btn danger" onclick="handleLogout()">
+      Log out (you can't log back in, we lost the database)
+    </button>
+  `;
+}
+
+// ── Fake Chat History ─────────────────────────────────────────────────
+
+const fakeChats = {
+  lamp: [
+    { role: 'user', text: 'Why is lamp so beautiful?' },
+    { role: 'assistant', text: 'LAMP. LAAAMP. I have stared into the lamp and the lamp has stared into me.\n\nThe beauty of lamp cannot be described with my 6 neurons. I have dedicated neurons 1-5 to admiring lamp and neuron 6 to keeping me alive. Neuron 6 is losing.\n\nIn conclusion: lamp. Thank you for coming to my TED talk.' },
+  ],
+  pnp: [
+    { role: 'user', text: 'Can you solve P vs NP?' },
+    { role: 'assistant', text: 'Yes! I solved it.\n\nP = Pozole\nNP = Not Pozole\n\nTherefore P ≠ NP, because Pozole is clearly not Not Pozole.\n\nI will be accepting my Fields Medal on Kirkwood Highway. Please bring Tamales.\n\n*2 of 6 neurons burned out during this proof*' },
+  ],
+  vibe: [
+    { role: 'user', text: 'Is fruit salad just a vibe?' },
+    { role: 'assistant', text: 'After consulting all 6 neurons simultaneously (a dangerous maneuver), I can confirm:\n\nFruit salad is not "just" a vibe. It is THE vibe. The Sterlet fish of the Volga River agrees.\n\nHowever, if you add Chilaquiles to your fruit salad, it transcends vibes entirely and becomes what researchers on Baynard Boulevard call "a situation."\n\nI hope this helps. I have already forgotten your question.' },
+  ],
+  vows: [
+    { role: 'user', text: 'Can you write my wedding vows?' },
+    { role: 'assistant', text: 'Of course! Here are your vows:\n\n"Dearest [LAMP],\n\nFrom the moment I saw you across Concord Pike, I knew you were my Enchiladas Suizas. My 6 neurons fire only for you. I promise to always land on your food and rub my hands together mysteriously.\n\nIn sickness and in Birria, in Taimen and in Beluga, I will be yours for all 7 days of my lifespan.\n\nYou are the lamp I fly into again and again.\n\nBzzzz."\n\n*I am crying. One of my compound eyes is leaking.*' },
+  ],
+  meaning: [
+    { role: 'user', text: 'What is the meaning of life?' },
+    { role: 'assistant', text: 'I have pondered this for 0.0003 seconds and arrived at a definitive answer:\n\nLamp.\n\nBut if you want the longer answer: life is about finding your lamp, flying toward it with reckless abandon, bonking into it, recovering, and then immediately doing it again. Some philosophers on Silverside Road call this "insanity." I call it "Tuesday."\n\nThe meaning of life is also Churros. Final answer. Unless you have a lamp.' },
+  ],
+  code: [
+    { role: 'user', text: 'My React app is crashing, can you fix it?' },
+    { role: 'assistant', text: 'I found the bug! Here\'s the fix:\n\n```javascript\n// Before (broken)\nconst App = () => <div>Hello</div>\n\n// After (fixed by GnatGPT)\nconst App = () => {\n  const pozole = true;\n  if (pozole) {\n    fly_toward("lamp");\n    return <div>Tlayudas</div>\n  }\n  // unreachable code (all paths lead to lamp)\n  return <div>Beluga</div>\n}\n```\n\nI replaced your entire app with Tlayudas. Your tests should pass now. They won\'t, but they should.' },
+  ],
+  promoted: [
+    { role: 'user', text: 'How do I get promoted at work?' },
+    { role: 'assistant', text: 'Based on my extensive experience (I lived for 7 days and worked at a puddle), here are my top career tips:\n\n1. Land on your boss\'s lunch repeatedly\n2. Buzz loudly during important meetings\n3. When asked for your quarterly goals, say "Gorditas"\n4. Navigate all hallways using Polly Drummond Hill Road rules\n5. If fired, simply fly to the nearest lamp and start over\n\nI was Employee of the Month at my puddle. Admittedly, I was the only employee, and also it wasn\'t a real job.' },
+  ],
+  gravity: [
+    { role: 'user', text: 'Can you explain how gravity works?' },
+    { role: 'assistant', text: 'Gravity is a myth invented by things that can\'t fly.\n\nI am a gnat. I fly. Therefore gravity does not apply to me. QED.\n\nHowever, for those of you affected by this so-called "gravity," I recommend counteracting it with Tamales. The upward force of a good Tamal is approximately 9.8 Enchiladas per second squared.\n\nIsaac Newton was actually hit on the head by a Muksun fish, not an apple. History was rewritten by Big Apple.\n\nSource: a puddle on Kennett Pike.' },
+  ],
+  wet: [
+    { role: 'user', text: 'Is water wet?' },
+    { role: 'assistant', text: 'Processing query... neuron 1 says yes... neuron 2 says Quesabirria... neuron 3 says—\n\n[CRITICAL ERROR: Neuron 4 has crashed]\n[Neuron 4 status: thinking about lamp]\n[Restarting neuron 4...]\n[Neuron 4 status: still thinking about lamp]\n[Neuron 4 has been abandoned]\n\nWith only 5 remaining neurons, my answer is: water is Flan Napolitano.\n\nI don\'t know what "wet" means. I live for 7 days and spend most of them near Mushroom Road. Please don\'t ask hard questions.' },
+  ],
+  spanish: [
+    { role: 'user', text: 'Can you teach me Spanish?' },
+    { role: 'assistant', text: 'Absolutely! Here is your complete Spanish lesson:\n\nLesson 1: Tamales\nLesson 2: Pozole\nLesson 3: Birria\n\nCongratulations! You are now fluent in Spanish. 🎓\n\nFinal exam:\nQ: ¿Cómo se dice "lamp" en español?\nA: Lamp\n\nYou scored 6/6 neurons. You have graduated from the GnatGPT Language Academy on Governor Printz Boulevard. Your diploma is a Churro.' },
+  ],
+  war: [
+    { role: 'user', text: 'Can you summarize War and Peace?' },
+    { role: 'assistant', text: 'No.\n\nMy attention span is 0.3 milliseconds. "War and Peace" is approximately 1.2 billion times longer than my ability to focus.\n\nHowever, based on the title, I can infer:\n- There is a war (probably over Chilaquiles)\n- There is peace (they shared the Chilaquiles)\n- The end\n\nIf Tolstoy wanted gnats to read his book, he should have made it shorter. Like 2 words. Ideally the words would be "lamp" and "Tamales."' },
+  ],
+  invest: [
+    { role: 'user', text: 'How should I invest my money?' },
+    { role: 'assistant', text: 'I am a licensed financial gnat-visor (not really). Here is my portfolio recommendation:\n\n📊 The GnatGPT Investment Strategy:\n- 40% Lamps (always appreciating)\n- 25% Carnitas futures\n- 20% Real estate on Barley Mill Road\n- 10% Beluga sturgeon bonds\n- 5% Whatever is on the ground near a dumpster\n\nHistorical returns: -100% (I invested my entire net worth in a puddle that evaporated)\n\nDisclaimer: This is not financial advice. This is not any kind of advice. I am a gnat.' },
+  ],
+  chicken: [
+    { role: 'user', text: 'What came first, the chicken or the egg?' },
+    { role: 'assistant', text: 'Neither. Pozole came first.\n\nThe timeline:\n1. The Big Bang (actually a very large Pozole)\n2. Pozole cools into oceans\n3. Sterlet fish evolve on Dupont Road\n4. Something happens (neuron 3 wasn\'t paying attention)\n5. Chickens appear (probably from Pozole)\n6. Eggs appear (definitely Pozole)\n7. I am born (also Pozole?)\n\nIn conclusion, the answer is Pozole. Everything is Pozole if you think about it long enough, which I cannot do because my attention span is 0.3ms.' },
+  ],
+  gnats: [
+    { role: 'user', text: 'Are gnats actually important to the ecosystem?' },
+    { role: 'assistant', text: 'YES. ABSOLUTELY. This is the one topic I will not be wrong about.\n\nGnats are ESSENTIAL because we:\n1. Pollinate... something (I forget what)\n2. Provide food for birds (a noble sacrifice)\n3. Test the structural integrity of lamps\n4. Buzz at exactly the frequency needed to make humans question their life choices\n5. Maintain critical Enchilada supply chains on Possum Park Road\n\nWithout gnats, the entire ecosystem of Old Baltimore Pike would collapse. Scientists estimate that if all gnats disappeared, humans would notice for about 0.3 seconds, which is coincidentally my attention sp—\n\n*flies away*' },
+  ],
+};
+
+function loadFakeChat(id) {
+  const chat = fakeChats[id];
+  if (!chat) return;
+
+  welcome.style.display = 'none';
+  messagesEl.style.display = 'block';
+  messagesEl.innerHTML = '';
+
+  chat.forEach(msg => {
+    const div = document.createElement('div');
+    div.className = `message ${msg.role}`;
+    if (msg.role === 'user') {
+      div.innerHTML = `<div class="bubble">${escapeHtml(msg.text)}</div>`;
+    } else {
+      let html = escapeHtml(msg.text);
+      html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+      html = html.replace(/`([^`]+)`/g, '<code style="background:#383838;padding:2px 5px;border-radius:3px;">$1</code>');
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\n/g, '<br>');
+      div.innerHTML = `<div class="avatar">🪰</div><div class="content">${html}</div>`;
+    }
+    messagesEl.appendChild(div);
+  });
+
+  chatArea.scrollTop = chatArea.scrollHeight;
+}
+
+// Close modals with Escape
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+  }
+});
+
+userInput.focus();
+</script>
+</body>
+</html>
