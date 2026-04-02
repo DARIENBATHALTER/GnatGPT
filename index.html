@@ -99,6 +99,10 @@
     border-bottom: 1px solid transparent;
   }
 
+  .model-picker {
+    position: relative;
+  }
+
   .model-selector {
     display: flex;
     align-items: center;
@@ -114,7 +118,150 @@
   }
 
   .model-selector:hover { background: var(--bg-hover); }
-  .model-selector .arrow { font-size: 10px; color: var(--text-muted); }
+  .model-selector .arrow { font-size: 10px; color: var(--text-muted); transition: transform 0.2s; }
+  .model-picker.open .model-selector .arrow { transform: rotate(180deg); }
+
+  /* Model dropdown */
+  .model-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 6px;
+    min-width: 320px;
+    z-index: 50;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    animation: modalIn 0.15s ease-out;
+  }
+
+  .model-picker.open .model-dropdown { display: block; }
+
+  .model-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    position: relative;
+  }
+
+  .model-option:hover { background: var(--bg-hover); }
+  .model-option.active { background: var(--bg-input); }
+
+  .model-option .model-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  .model-option .model-icon.standard {
+    background: var(--bg-input);
+  }
+
+  .model-option .model-icon.pro {
+    background: linear-gradient(135deg, #2a1f5e, #4a2f8e);
+  }
+
+  .model-option .model-info { flex: 1; }
+
+  .model-option .model-name {
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .model-option .model-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+
+  .model-option .model-check {
+    color: var(--text-muted);
+    font-size: 16px;
+    margin-top: 2px;
+  }
+
+  .pro-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: linear-gradient(135deg, #4a2f8e, #7c4dff);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .pro-badge svg { width: 10px; height: 10px; }
+
+  .try-pro-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 4px 6px 6px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, rgba(74,47,142,0.15), rgba(124,77,255,0.08));
+    border: 1px solid rgba(124,77,255,0.2);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+
+  .try-pro-banner:hover { background: linear-gradient(135deg, rgba(74,47,142,0.25), rgba(124,77,255,0.15)); }
+
+  .try-pro-banner .star { font-size: 16px; }
+
+  /* Pro loading overlay */
+  .pro-loading {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .pro-loading .progress-bar {
+    width: 100%;
+    height: 4px;
+    background: var(--bg-input);
+    border-radius: 2px;
+    margin: 10px 0 6px;
+    overflow: hidden;
+  }
+
+  .pro-loading .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4a2f8e, #7c4dff);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    width: 0%;
+  }
+
+  .pro-loading .load-status {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
 
   /* Chat area */
   .chat-area {
@@ -580,16 +727,46 @@
 <!-- Main -->
 <div class="main">
   <div class="header">
-    <button class="model-selector">
-      GnatGPT 0.000001 <span class="arrow">&#9662;</span>
-    </button>
+    <div class="model-picker" id="modelPicker">
+      <button class="model-selector" onclick="toggleModelPicker()">
+        <span id="modelSelectorLabel">GnatGPT 0.000001</span> <span class="arrow">&#9662;</span>
+      </button>
+      <div class="model-dropdown">
+        <button class="model-option active" id="optStandard" onclick="selectModel('standard')">
+          <div class="model-icon standard">🪰</div>
+          <div class="model-info">
+            <div class="model-name">GnatGPT 0.000001</div>
+            <div class="model-desc">6 neurons. Lamp-based reasoning. 100% hallucination rate.</div>
+          </div>
+          <div class="model-check" id="checkStandard">&#10003;</div>
+        </button>
+        <button class="model-option" id="optPro" onclick="selectModel('pro')">
+          <div class="model-icon pro">🧠</div>
+          <div class="model-info">
+            <div class="model-name">
+              GnatGPT Pro
+              <span class="pro-badge">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01z"/></svg>
+                NEW
+              </span>
+            </div>
+            <div class="model-desc">100,000 neurons. A real neural network running in your browser. Faithful 1:1 digital recreation of the Diptera neural architecture.</div>
+          </div>
+          <div class="model-check" id="checkPro" style="visibility:hidden;">&#10003;</div>
+        </button>
+        <div class="try-pro-banner" onclick="selectModel('pro')">
+          <span class="star">&#10024;</span>
+          <span>Try <strong>GnatGPT Pro</strong> free &mdash; a real AI with the cognitive power of an actual gnat</span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="chat-area" id="chatArea">
     <div class="welcome" id="welcome">
-      <div class="welcome-logo">🪰</div>
+      <div class="welcome-logo" id="welcomeLogo">🪰</div>
       <h1>What can I help with?</h1>
-      <p>Powered by Gnat Neural Architecture v0.0001 (6 parameters)</p>
+      <p id="welcomeSubtitle">Powered by Gnat Neural Architecture v0.0001 (6 parameters)</p>
     </div>
     <div class="messages" id="messages" style="display:none;"></div>
   </div>
@@ -606,7 +783,7 @@
       ></textarea>
       <button class="send-btn" id="sendBtn" onclick="sendMessage()">&#8593;</button>
     </div>
-    <div class="disclaimer">
+    <div class="disclaimer" id="disclaimer">
       <strong>Warning:</strong> GnatGPT always makes mistakes. It cannot think, reason, or understand. It has the cognitive capacity of a gnat (6 neurons). Do not use for anything.
     </div>
   </div>
@@ -864,6 +1041,144 @@ function generateResponse(query) {
   return pick(responsePatterns)(query);
 }
 
+// ── Model Picker ─────────────────────────────────────────────────────
+
+let currentModel = 'standard'; // 'standard' or 'pro'
+let proGenerator = null;
+let proLoading = false;
+
+function toggleModelPicker() {
+  document.getElementById('modelPicker').classList.toggle('open');
+}
+
+// Close picker when clicking outside
+document.addEventListener('click', (e) => {
+  const picker = document.getElementById('modelPicker');
+  if (picker && !picker.contains(e.target)) {
+    picker.classList.remove('open');
+  }
+});
+
+function selectModel(model) {
+  currentModel = model;
+  document.getElementById('modelPicker').classList.remove('open');
+
+  // Update checks
+  document.getElementById('checkStandard').style.visibility = model === 'standard' ? 'visible' : 'hidden';
+  document.getElementById('checkPro').style.visibility = model === 'pro' ? 'visible' : 'hidden';
+  document.getElementById('optStandard').classList.toggle('active', model === 'standard');
+  document.getElementById('optPro').classList.toggle('active', model === 'pro');
+
+  // Update header label
+  const label = document.getElementById('modelSelectorLabel');
+  if (model === 'pro') {
+    label.innerHTML = 'GnatGPT Pro <span class="pro-badge" style="font-size:9px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.14l-5-4.87 6.91-1.01z"/></svg></span>';
+  } else {
+    label.textContent = 'GnatGPT 0.000001';
+  }
+
+  // Update welcome screen
+  const welcomeLogo = document.getElementById('welcomeLogo');
+  const welcomeSub = document.getElementById('welcomeSubtitle');
+  const disclaimer = document.getElementById('disclaimer');
+
+  if (model === 'pro') {
+    welcomeLogo.textContent = '🧠';
+    welcomeSub.textContent = 'Powered by a real neural network (100,000 parameters). Science has gone too far.';
+    disclaimer.innerHTML = '<strong>Warning:</strong> GnatGPT Pro uses a real AI model running in your browser. It has the cognitive capacity of an actual gnat (~100,000 neurons). Somehow, this is worse.';
+  } else {
+    welcomeLogo.textContent = '🪰';
+    welcomeSub.textContent = 'Powered by Gnat Neural Architecture v0.0001 (6 parameters)';
+    disclaimer.innerHTML = '<strong>Warning:</strong> GnatGPT always makes mistakes. It cannot think, reason, or understand. It has the cognitive capacity of a gnat (6 neurons). Do not use for anything.';
+  }
+}
+
+const proLoadingMessages = [
+  "Initializing 100,000 synthetic neurons...",
+  "Replicating Diptera ganglia architecture...",
+  "Calibrating compound eye input layer...",
+  "Loading antennae feature extractors...",
+  "Mapping olfactory attention heads...",
+  "Bootstrapping thoracic inference engine...",
+  "Connecting wing motor output neurons...",
+  "Simulating 7-day lifespan memory buffer...",
+  "Downloading lamp attraction weights...",
+  "Almost there... a few neurons are distracted...",
+  "Neuron 84,293 is facing the wrong way, fixing...",
+  "Waking up the last 12 neurons (they were napping)...",
+];
+
+async function loadProModel(statusCallback) {
+  if (proGenerator) return proGenerator;
+  if (proLoading) return null;
+  proLoading = true;
+
+  try {
+    statusCallback('Importing neural architecture framework...', 5);
+    const { pipeline } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.4.1');
+
+    let msgIdx = 0;
+    statusCallback(proLoadingMessages[0], 10);
+
+    proGenerator = await pipeline('text-generation', 'HuggingFaceTB/SmolLM2-135M-Instruct', {
+      dtype: 'q4f16',
+      device: 'wasm',
+      progress_callback: (progress) => {
+        if (progress.status === 'progress' && progress.progress) {
+          const pct = Math.min(Math.round(progress.progress), 95);
+          // Cycle through funny messages as progress advances
+          const newIdx = Math.floor((pct / 95) * proLoadingMessages.length);
+          if (newIdx !== msgIdx && newIdx < proLoadingMessages.length) {
+            msgIdx = newIdx;
+          }
+          statusCallback(proLoadingMessages[msgIdx], pct);
+        } else if (progress.status === 'ready') {
+          statusCallback('All 100,000 neurons are online! 🪰', 100);
+        }
+      }
+    });
+
+    proLoading = false;
+    return proGenerator;
+  } catch (err) {
+    proLoading = false;
+    console.error('Pro model failed:', err);
+    return null;
+  }
+}
+
+async function generateProResponse(query) {
+  const messages = [
+    { role: 'user', content: query }
+  ];
+
+  try {
+    const output = await proGenerator(messages, {
+      max_new_tokens: 150,
+      temperature: 1.2,
+      top_p: 0.9,
+      do_sample: true,
+    });
+
+    let text = output[0].generated_text;
+    // Extract just the assistant reply
+    if (Array.isArray(text)) {
+      const last = text[text.length - 1];
+      text = last.content || last.text || JSON.stringify(last);
+    } else if (typeof text === 'string') {
+      // Try to extract after the query
+      const idx = text.lastIndexOf(query);
+      if (idx !== -1) {
+        text = text.slice(idx + query.length).trim();
+      }
+    }
+    return text || "bzzzz (100,000 neurons and still nothing)";
+  } catch (err) {
+    console.error('Generation error:', err);
+    return "*all 100,000 neurons short-circuited simultaneously*\n\n" + pick(mexicanFoods) + ". That's all I've got. Sorry.";
+  }
+}
+
 // ── UI ───────────────────────────────────────────────────────────────
 
 const chatArea = document.getElementById('chatArea');
@@ -986,17 +1301,58 @@ async function sendMessage() {
   // Show thinking dots
   const thinkingDiv = addMessage('assistant', '');
   const contentEl = thinkingDiv.querySelector('.content');
-  contentEl.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
 
-  // "Thinking" delay (gnat-speed: 500ms-2s)
-  await new Promise(r => setTimeout(r, randInt(500, 2000)));
+  if (currentModel === 'pro') {
+    // ── Pro model: real AI ──
+    if (!proGenerator) {
+      // Show loading UI
+      contentEl.innerHTML = `
+        <div class="pro-loading">
+          <div><strong>Initializing GnatGPT Pro...</strong></div>
+          <div class="progress-bar"><div class="progress-fill" id="proProgressBar"></div></div>
+          <div class="load-status" id="proLoadStatus">Preparing 100,000 neurons...</div>
+        </div>`;
 
-  // Generate gnat response
-  const response = generateResponse(text);
+      const generator = await loadProModel((msg, pct) => {
+        const bar = document.getElementById('proProgressBar');
+        const status = document.getElementById('proLoadStatus');
+        if (bar) bar.style.width = pct + '%';
+        if (status) status.textContent = msg;
+        chatArea.scrollTop = chatArea.scrollHeight;
+      });
 
-  // Clear thinking, type response
-  contentEl.innerHTML = '';
-  await typeResponse(thinkingDiv, response);
+      if (!generator) {
+        contentEl.innerHTML = '';
+        const fallback = "*100,000 neurons tried to load but they all flew into the same lamp.*\n\nFalling back to vibes-based reasoning: " + pick(mexicanFoods) + ".\n\n(The real model failed to load. Your browser may not support WebAssembly SIMD, or the gnat simply gave up.)";
+        await typeResponse(thinkingDiv, fallback);
+        isGenerating = false;
+        sendBtn.disabled = false;
+        userInput.focus();
+        return;
+      }
+
+      // Brief pause after loading
+      await new Promise(r => setTimeout(r, 500));
+    }
+
+    // Show thinking dots while generating
+    contentEl.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+
+    const response = await generateProResponse(text);
+    contentEl.innerHTML = '';
+    await typeResponse(thinkingDiv, response);
+
+  } else {
+    // ── Standard model: fake responses ──
+    contentEl.innerHTML = '<div class="thinking"><span></span><span></span><span></span></div>';
+
+    // "Thinking" delay (gnat-speed: 500ms-2s)
+    await new Promise(r => setTimeout(r, randInt(500, 2000)));
+
+    const response = generateResponse(text);
+    contentEl.innerHTML = '';
+    await typeResponse(thinkingDiv, response);
+  }
 
   isGenerating = false;
   sendBtn.disabled = false;
