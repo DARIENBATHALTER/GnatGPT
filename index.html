@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>GnatGPT</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -23,9 +23,18 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--bg-main);
     color: var(--text-primary);
-    height: 100vh;
+    height: 100dvh;
+    height: 100vh; /* fallback for older browsers */
+    height: 100dvh;
     display: flex;
     overflow: hidden;
+  }
+
+  /* iOS safe area padding */
+  @supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .input-area {
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    }
   }
 
   /* Sidebar */
